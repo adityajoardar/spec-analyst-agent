@@ -2,7 +2,7 @@
 
 An AI agent that reads a functional specification document, breaks it into discrete requirements, and recommends where automation genuinely adds value — with effort and risk ratings for each — while deliberately flagging where simple rules beat AI.
 
-**Live demo:** https://YOUR-USERNAME.github.io/spec-analyst-agent/
+**Live demo:** https://adityajoardar.github.io/spec-analyst-agent/
 _(update this link after enabling GitHub Pages — see below)_
 
 ---
