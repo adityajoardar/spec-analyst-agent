@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec Analyst &mdash; AI Automation Opportunity Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Serif:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+:root {
+  --font-sans: 'IBM Plex Sans', Arial, sans-serif;
+  --font-serif: 'IBM Plex Serif', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --color-background-primary: #FFFFFF;
+  --color-background-secondary: #F4F2ED;
+  --color-background-tertiary: #EAE7DF;
+  --color-background-info: #E6F1FB;
+  --color-background-success: #EAF3DE;
+  --color-background-warning: #FAEEDA;
+  --color-background-danger: #FCEBEB;
+  --color-text-primary: #1B2838;
+  --color-text-secondary: #5F5E5A;
+  --color-text-tertiary: #888780;
+  --color-text-info: #0C447C;
+  --color-text-success: #27500A;
+  --color-text-warning: #854F0B;
+  --color-text-danger: #791F1F;
+  --color-border-tertiary: rgba(27,40,56,0.15);
+  --color-border-secondary: rgba(27,40,56,0.3);
+  --color-border-primary: rgba(27,40,56,0.4);
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 32px 24px;
+  background: #EFEDE6;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: var(--color-background-primary);
+  border-radius: var(--border-radius-xl);
+  padding: 28px 32px 32px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+}
+.footer-note {
+  max-width: 1100px;
+  margin: 18px auto 0;
+  font-size: 12px;
+  color: #888780;
+  text-align: center;
+}
+.footer-note code {
+  background: #E6E3DA;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+button.run-btn {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-secondary);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+button.run-btn:hover:not(:disabled) { background: var(--color-background-secondary); }
+button.run-btn:active:not(:disabled) { transform: scale(0.98); }
+.chat-section { margin-top: 18px; border-top: 0.5px solid var(--color-border-tertiary); padding-top: 14px; }
+.chat-log { display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; margin-bottom: 10px; padding-right: 2px; }
+.chat-empty { font-size: 13px; color: var(--color-text-tertiary); padding: 8px 0; }
+.chat-msg { display: flex; gap: 8px; max-width: 100%; }
+.chat-msg.user { justify-content: flex-end; }
+.chat-bubble { font-size: 13.5px; line-height: 1.55; padding: 8px 12px; border-radius: var(--border-radius-lg); max-width: 78%; white-space: pre-wrap; }
+.chat-msg.user .chat-bubble { background: var(--color-background-info); color: var(--color-text-info); }
+.chat-msg.assistant .chat-bubble { background: var(--color-background-secondary); color: var(--color-text-primary); }
+.chat-msg.system .chat-bubble { background: var(--color-background-success); color: var(--color-text-success); font-style: italic; }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input { flex: 1; font-family: var(--font-sans); font-size: 13.5px; padding: 8px 12px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); }
+.chat-thinking { font-size: 12px; color: var(--color-text-tertiary); display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+<div id="agent-root">
+  <h2 class="sr-only">AI agent that reads a FLEXCUBE functional spec and recommends automation opportunities</h2>
+
+  <div class="top-bar">
+    <div class="brand">
+      <span class="brand-mark">SA</span>
+      <div class="brand-text">
+        <div class="brand-title">Spec Analyst</div>
+        <div class="brand-sub">AI automation-opportunity agent</div>
+      </div>
+    </div>
+    <div class="doc-meta">
+      <span id="doc-name">Oracle FLEXCUBE — CASA User Guide, §3.2</span>
+      <span class="doc-pages">Customer Accounts Maintenance</span>
+    </div>
+  </div>
+
+  <div class="upload-row">
+    <label class="upload-btn" for="file-input">
+      <i class="ti ti-upload" aria-hidden="true"></i> Upload document
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt" style="display:none;" />
+    </label>
+    <span id="upload-status" class="upload-status">Using default: Oracle FLEXCUBE CASA User Guide, §3.2</span>
+  </div>
+
+  <div class="controls-row">
+    <button id="run-btn" class="run-btn"><i class="ti ti-player-play" aria-hidden="true"></i> Analyse spec</button>
+    <div id="status-line" class="status-line">Ready — 10,400-word extract loaded</div>
+  </div>
+
+  <div class="panes">
+    <div class="pane pane-source">
+      <div class="pane-label">Source document</div>
+      <div id="source-text" class="source-text"></div>
+    </div>
+
+    <div class="pane pane-results">
+      <div class="pane-label">Automation-opportunity analysis</div>
+      <div id="results-list" class="results-list">
+        <div class="empty-state">Click <strong>Analyse spec</strong> to run the agent.</div>
+      </div>
+      <div id="summary-bar" class="summary-bar" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="chat-section">
+    <div class="pane-label">Ask follow-up questions</div>
+    <div id="chat-log" class="chat-log">
+      <div class="chat-empty">Ask things like &ldquo;why is the nominee step high risk?&rdquo; or &ldquo;redo this focusing only on compliance-related steps&rdquo;.</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" class="chat-input" placeholder="Ask a follow-up question…" />
+      <button id="chat-send" class="run-btn"><i class="ti ti-send" aria-hidden="true"></i> Send</button>
+    </div>
+  </div>
+</div>
+
+<style>
+#agent-root { font-family: var(--font-sans); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.top-bar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 32px; height: 32px; border-radius: var(--border-radius-md); background: var(--color-background-info); color: var(--color-text-info); display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-weight: 500; font-size: 14px; }
+.brand-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; line-height: 1.2; }
+.brand-sub { font-size: 12px; color: var(--color-text-secondary); }
+.doc-meta { text-align: right; font-size: 12px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 2px; }
+#doc-name { font-weight: 500; color: var(--color-text-primary); }
+.controls-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.upload-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.upload-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); cursor: pointer; }
+.upload-btn:hover { background: var(--color-background-secondary); }
+.upload-status { font-size: 12.5px; color: var(--color-text-secondary); }
+.run-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.run-btn:disabled { opacity: 0.5; cursor: default; }
+.status-line { font-size: 13px; color: var(--color-text-secondary); }
+.panes { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: start; }
+.pane { min-width: 0; }
+.pane-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+.source-text { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 14px 16px; height: 560px; overflow-y: auto; font-size: 12.5px; line-height: 1.65; color: var(--color-text-secondary); white-space: pre-wrap; }
+.source-text .hl { background: var(--color-background-warning); color: var(--color-text-warning); border-radius: 3px; padding: 1px 2px; transition: background 0.3s; }
+.results-list { display: flex; flex-direction: column; gap: 10px; height: 560px; overflow-y: auto; padding-right: 2px; }
+.empty-state { font-size: 13px; color: var(--color-text-tertiary); padding: 16px 0; }
+.req-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 12px 14px; opacity: 0; transform: translateY(6px); animation: cardIn 0.35s ease forwards; }
+@keyframes cardIn { to { opacity: 1; transform: translateY(0); } }
+.req-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.req-title { font-size: 13.5px; font-weight: 500; line-height: 1.4; }
+.badges { display: flex; gap: 6px; flex-shrink: 0; }
+.badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: var(--border-radius-md); white-space: nowrap; }
+.badge-effort-low { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-effort-medium { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-effort-high { background: var(--color-background-danger); color: var(--color-text-danger); }
+.badge-risk-low { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-risk-medium { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-risk-high { background: var(--color-background-danger); color: var(--color-text-danger); }
+.req-row { font-size: 12.5px; color: var(--color-text-secondary); margin-top: 4px; line-height: 1.5; }
+.req-row b { color: var(--color-text-primary); font-weight: 500; }
+.req-technique { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 500; background: var(--color-background-info); color: var(--color-text-info); padding: 2px 8px; border-radius: var(--border-radius-md); margin-top: 6px; }
+.summary-bar { margin-top: 12px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; }
+.metric-label { font-size: 11.5px; color: var(--color-text-secondary); margin-bottom: 2px; }
+.metric-value { font-size: 19px; font-weight: 500; }
+.thinking-line { font-size: 12px; color: var(--color-text-tertiary); display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color-text-tertiary); animation: pulse 1.2s ease infinite; }
+@keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+@media (max-width: 620px) { .panes { grid-template-columns: 1fr; } .source-text, .results-list { height: 320px; } }
+</style>
+
+<script>
+let SPEC_TEXT = "Maintaining Customer Accounts\nInvoke the \u2018Customer Accounts Maintenance\u2019 screen by typing \u2018STDCUSAC\u2019 in the field at the\ntop right corner of the Application tool bar and clicking the adjoining arrow button. Click the\nnew button on the toolbar.\n\nNote\nYou can query or modify the account details of the customers whose accounts are permitted to you for the query/modification in the \u2018Group Code Restriction\u2019 screen\nDetails maintained in this screen are classified into three broad heads:\n\nMain\n\nHere you maintain the main attributes of each customer account like\nthe account number, customer code, the account class, account currency, type of account - single or joint, account status, other statuses\napplicable, Cheque Book preferences etc.\n\nAuxiliary\n\nUnder Auxiliary you can view other details like provisioning etc.\n\nNominee\n\nNominee details are maintained under Nominee head.\n\nCheck List\n\nDocument details like document type, expiry date, expected date of\nsubmission and so on are maintained under Check List.\n\nThe \u2018Customer Accounts Maintenance - Main\u2019 screen is displayed by default when you invoke\nthe \u2018Customer Accounts Maintenance\u2019 screen. The Branch Code of the sign-on branch is on\ndisplay.\nCustomer No\nTo create an account, you need to input the CIF number of the customer for whom the account\nis to be created. The adjoining option list displays all the valid customer codes. You can select\nthe appropriate one.\nIf the CIF number is a part of the account mask, the specified CIF should be as part of the\naccount number as per the length of CIF in the mask.\nIf you have included the CIF Number of the customer as part of the Account Mask, the system\nautomatically defaults the CIF code of the customer in the respective field. You can modify\nthis code.\nHowever, while defining the Account Mask in the Account Parameters section of the Bankwide Parameters screen, if you have specified that the CIF Number should not be a part of\nthe account mask you will have to specify the customer code manually. A list of all the valid\ncustomer codes is displayed in the available option list. You can select the appropriate.\nCustomer Name\nThe name of the customer is displayed based on the CIF ID that you have mentioned in\n\u2018Customer No\u2019 field.\nCurrency\nYou have to identify the currency of the customer account. A list of all the currencies\nmaintained in the system will be displayed in the available list. You can select the currency of\ntransaction for the respective account. If the currency of the account is not defined for the\ncurrent period in the \u2018Turnover Limit Maintenance\u2019 screen, you will not be able to save the\naccount.\nRefer the section \u2018Maintaining Turnover Limits\u2019 in the chapter titled \u2018Maintaining Mandatory\nInformation\u2019 in this User Manual for details about the \u2018Turnover Limit Maintenance\u2019 screen.\n\nAccount\nYou can indicate the account number of the customer. One customer can have any number\nof accounts.\nThe structure of the account number is defined in the customer account mask maintained in\nthe Account Parameters sub-screen of the Branch-wide parameters screen. The account\nnumber can be a combination of the account class, customer code (CIF Number), serial\nnumber or currency as defined in the customer account mask.\nThe last constituent of the account number is always a system generated check digit (it could\nbe alphabetical or numeric depending upon the mask defined).\nYou cannot alter the relative position of the constituents of customer account (as defined in\nthe mask) while maintaining actual customer accounts.\nAccount Class\nIn Oracle FLEXCUBE, you can classify the customer accounts of your bank into different\ngroups. Each group is referred to as an account class and is maintained in the \u2018Account Class\nMaintenance\u2019 screen. For each class, you have to define certain common attributes\napplicable to all accounts in the particular class.\nWhile maintaining a specific account you have to identify the class to which the particular\naccount belongs. You can select the appropriate account class from the list of all the valid\naccount classes maintained in the system. Account classes that have surpassed their end\ndate (expired) will not be displayed in the option list.\nRefer the chapter \u2018Maintaining Mandatory Information\u2019 in the Core Entities User Manual for\ndetails about maintaining account classes.\nFetch\nFetch button is used to fetch the account number. The system will fetch the account number\nif the following ways:\n\nIf the Auto Account Generate option is enabled in branch parameter, the system will default the auto-generated account number.\n\nIf the Auto Account Generate option is disabled in branch parameter, the system will\npopup the account window. You can specify the account number and it will be defaulted\nin the main screen.\n\nBranch Code\nThe system displays the branch code of the sign on branch. If the you have Multi Branch\nAccess Rights, system allows you to select the branch where the account is to be created.\nNote\nThe branch selection option list will display all the active branches, to which the user has\naccess.\nSD User Reference\nThe system displays the SD user reference for the account; however, this is not applicable for\nCASA.\nPrivate Customer\nThe system defaults whether the customer is private or not from the customer screen. You\ncannot modify this field.\n\n3.2.1\n\nCapturing Main Details\nAccount Description\nThe system displays the customer\u2019s complete name. However, you can modify it, if required.\nHere you can enter the nature of the account like current, savings, overdraft, etc. If a customer\nhas two or more accounts under one account class, you can specify the purpose of that\naccount.\nNote\nIt is mandatory to enter the account description. If the full name is not maintained at customer level or account description is not entered, the system will display an error message.\nAccount Type\nYou have to indicate whether the account is to be opened only by the account holder or\nwhether it can be jointly operated.\nMode of Operation\nSelect the mode of operation from the following options:\n\nSingle\n\nJointly\n\nEither Anyone or Survivor\n\nFormer or Survivor\n\nMandate Holder\n\nAccount Open Date\nThe system displays the current branch date. However, you need to specify the date on which\nthe account was opened.\nAddress 1\u20134\nSpecify the address of the customer.\nLocation\nAn address for a customer account is based on the \u2018Location\u2019 and \u2018Media\u2019 combination.\nLocation codes maintained through the \u2018Account Address Location Type Maintenance\u2019 screen\nare made available against this field. The address maintained here is always the primary or\nthe default address. Each customer can have several addresses for a particular media. To\ndistinguish between one address of a customer from another for a given media, it is essential\nfor you to specify a unique location for each address. Also, if you are amending an address\nhere, the same gets updated in the \u2018Customer Account Address - Detailed\u2019 table after the\nvalidations are through.\nMedia\nIndicate the media for which the charge should be levied. Select one of the following options\nfrom the option list:\n\nMail\n\nTelex\n\nSWIFT\n\nFax\n\nCountry Code\nSpecify the country of the customer. This adjoining option list displays all valid country codes\nmaintained in the system. You can choose the appropriate one.\n\nNote\nThe country information is captured to enable Mantas to analyse the transactions for possible money laundering activities.\n\n3.2.1.1\n\nSpecifying Account Facilities\nAs part of specifying the account facilities, you can indicate whether the account holder can\navail of the following facilities:\n\nA chequebook facility\n\nA passbook facility\n\nA CAS account facility\n\nAn ATM facility\n\nYou can indicate that the account holder can avail of a Chequebook, Passbook, ATM facility\nby checking the box positioned next to each of these fields.\nIf you have indicated that the account holder needs to be provided with the check book facility,\nyou can also specify whether automatic reordering of cheque books should be allowed for the\naccount. In addition, you will have to maintain the check book details through the respective\nscreen. Similarly, you can choose to indicate that the account holder needs to be provided\nwith a Passbook and ATM facility.\nNote\nAlthough these specifications are defaulted from the account class screen, where you had\nmaintained these specifications for all accounts belonging to a class, the options specified\nat the account level will supersede that specified for the account class.\nCheque\nSystem checks the box by default if you have selected the option for availing cheque book\nfacility in account class screen\nPassbook\nSystem checks the box by default if you have selected the option for availing passbook facility\nin account class screen\nThis shall be defaulted from the account class screen, where you had defined this facility for\nall accounts belonging to a class. The option specified at the account level will supersede that\nspecified for the account class.\nCAS Account\nCheck this box if you wish to have CAS account facility.\nATM\nSystem checks the box by default if you have selected the option for availing ATM facility in\naccount class screen.\n\n3.2.1.2\n\nSpecifying Initial Funding\nYou can maintain the following details here:\nAccount Opening Amount\nSpecify the amount being deposited to open a customer account. While saving the record, the\nsystem checks whether this amount is equal to or greater than the minimum limit maintained\n\nfor the linked account class. If the amount is less than the applicable limit, the system will\ndisplay an error message. If it is equal to or greater than the limit amount, the system will\nproceed with saving.\nInput to this field will be mandatory if limit amount has been maintained for the linked account\nclass.\nPay-In Option\nSelect the method for initial funding during account creation. Choose one of the following\noptions:\n\nPay In By Account\n\nPay In By GL\n\nOffset Branch\nSpecify the branch code of the account for redemption.\nOffset Account\nSpecify the offset Account. If you have chosen \u2018Pay In By Account\u2019, as the pay-in option,\nspecify the customer account that should be debited while posting accounting entries. The\nadjoining option list displays all valid customer accounts and customer GLs maintained in the\nsystem. You can choose the appropriate one.\nIf you choose \u2018Pay In By GL\u2019, the system will display the offset GL maintained for the branch\nin the \u2018Term Deposit Payin Parameters Maintenance\u2019 screen.\nWaive Account Opening Charges\nCheck this box to indicate that account opening charges should be waived for individual\ncustomer account.\n\n3.2.1.3\n\nSpecifying Other Options\nReplicate Customer Signature\nThe signature of the customer gets defaulted from the linked CIF (customer) level to account.\nThis value will be defaulted only if the customer type is individual with single or joint mode of\noperation.\nSalary Account\nCheck this box to indicate the salary account which should be selected for loan recovery on\nsalary credit. By default this option is unchecked.\nIBAN Required\nCheck this box to capture the details of the IBAN account for a specific customer.,\nIBAN Account Number\nSpecify the IBAN Account Number.\nTo capture the details of the IBAN account, click the \u2018M\u2019 button. The IBAN details sub-screen\nwill be displayed.\nIn this screen, you can capture the IBAN Account Number as well as the bank code of the\nbank where the IBAN account resides.\nNote\nThe bank code and account number that you specify in this field will be validated against\nthe Bank Code and Account Number masks maintained in the Branch Parameters screen.\nIf the account Number that you capture is less than the length of the mask and the mask\n\nhappens to be numeric, the system automatically appends a zero to get the required\nlength.\nAfter you specify the Bank Code as well as the Account Number the system calculates the\ncheck digit based on the Country Code, Bank Code and Account Number combination.\nAlternate Account Number\nYou have to define an alternate account number for the account you are defining. The\nalternate account number that you specify should be unique for each customer. You can\ncapture the old account numbers used by your bank before installing the Oracle FLEXCUBE\nsystem. The old account numbers would be mapped with the new account numbers. This\nwould facilitate quick tracking of the account and generating queries.\nIn the Data Entry Module, you can input a transaction using the alternate account number\ninstead of the actual account number.\nClearing Bank Code\nSpecify the external bank\u2019s code that should be used for clearing maintenance. The adjoining\noption list displays the valid banks maintained in the system. You can choose the appropriate\none.\nClearing Account Number\nThe clearing account number for the customer account is generated automatically if you have\nopted for auto generation in the Branch parameters. The account number is created\naccording to the account mask you have maintained for the branch. This will be mandatory,\nand has to comply with length of 9 characters and MOD 11 validation, if the value of the UDF\n\u2018Clearing A/C Mandatory\u2019 is maintained as YES in the Field Name to Value Definition screen.\nHowever, you can choose to change this number here and the system validates this number\nwith the account mask you have maintained for the branch.\n\n3.2.2\n\nViewing Details of Amounts and Dates\nIn the Customer Accounts Maintenance - Amounts and Dates screen you can view all\nfinancial details of this customer\u2019s account along with the details of the previous debit or credit\nactivities. However, access to all financial information of an account can be restricted for any\nuser. The financial details of an account include the account balance, the sweep eligible\nbalance, the uncleared debit and credit balances, the debit and credit turnover, and the\ninterest details. The turnover limit details of an account include the current financial period,\ncurrency, utilized and unutilized limit balances.\n\nClick \u2018Amounts and dates\u2019 button in the Customer Accounts Maintenance screen.\n\n3.2.2.1\n\nViewing Total Available Balance Details\nThe total available balance displayed by the system includes the initial funding amount and\nunutilized line amount (in case the customer enjoys an OD limit).\nIn the Amounts and Dates screen, you can view the outstanding debit interest and/or charges\ndue on the account, as on the current date.\nYou can also view the amount that can be withdrawn against uncollected funds, on the\naccount.\nThe System computes and displays the following\n\nAllowable amount based on the Withdrawable Uncollected Funds Basis option specified\nin the Branch Parameters Preferences screen.\n\nSweep Eligible balance which is sum of Available balance of Cover accounts, Available\nLinked amount of Auto Deposits & Available linked amount of Term Deposits.\n\nILM Sweep Eligible Balance is sweep eligible balance for integrated liquidity management. Sweep eligible balance is calculated during linking of cover accounts, Auto Deposits and Term Deposit accounts for the first time and is recalculated during:\n\u2013\n\nDe-linking of cover accounts /Auto Deposits/Term deposits\n\n\u2013\n\nAfter Sweep in processing\n\n\u2013\n\nAfter Reverse Sweep in processing\n\n\u2013\n\nAdding new cover accounts, Auto Deposits and Term Deposits\n\n\u2013\n\nModifying linked amount for Term Deposits\n\n\u2013\n\nChanging Cover accounts status to Debit restricted / Frozen/Dormant\n\n\u2013\n\nAny other event which impacts the balances of Cover accounts / Auto Deposits /\nTerm deposits\n\nClick \u2018F11\u2019 to compute sweep eligible balance. Based on the available balance, an authorizer in a bank authorizes debit transaction on primary source CASA account which\nhas sweeps arrangement in place. Click \u2018Details\u2019 button to view the details\n\n3.2.2.2\n\nIf Charge tracking preference is selected as \u2018Part track\u2019 or \u2018Full track\u2019 then, once the\namount for tracking has been calculated, the system will do the following validations in\nIC module:\n\u2013\n\nW ill create an internal amount block for the amount to be tracked against the charge\naccount.\n\n\u2013\n\nThe tracked amount will be updated in receivable amount in the CASA account upfront during tracking\n\n\u2013\n\nOnce the receivable amount is updated, the available balance will get affected. The\nreceivable amount is deducted from current balance while arriving at the available\nbalance.\n\nThe receivable amount will be displayed in the Amounts and dates tab of customer account\nscreen.Viewing Interest details\nAccrued interest (Dr/Cr) shows the amount accrued till date on the account.\nSystem displays the outstanding interest due & charge due in these fields. If the check box\nLiquidation Using Receivable is checked at the account class level and if the account has\ninsufficient balance, then system debits interest and charges from the receivable GL and the\nsame will be displayed in these fields.\n\n3.2.2.3\n\nViewing Unposted Entries\nWhen this branch is under EOD processing, the inter-branch transactions originated from\nother branches are tanked. The funds are made available automatically after BOD and till\nsuch time they are treated as unposted items.\n\n3.2.2.4\n\nViewing Turnover Limit Details\nYou can view the account balance status with respect to the turnover balance limit set for the\nfinancial period. You can view the financial period, currency, total deposited amount and the\npermissible limit for deposits. The period and limit details are inherited from the limit code\nassociated with the parent account class.\n\nDuring every credit transaction on the account, the system updates the limit utilization and\nchecks the balance amount against the permissible threshold. On account of a transaction, if\nthe balance breaches the limit threshold, the system will display an override message.\n\n3.2.2.5\n\nViewing Component-wise Breakup for Overdraft\nYou can view the component-wise outstanding amounts in ACY and the component-wise\noldest outstanding dates for overdraft accounts.\n\n3.2.2.6\n\nViewing Turnover Amounts\nIn the Customer Account - Turnover Amounts screen you can view the total turnover of this\ncustomer account from the first date of this month to the current day\u2019s system date. Also, you\ncan view the accumulated interest associated with debit or credit transactions after the last\nliquidation.\nTo view the turnovers for the account, click the \u2018Turnover\u2019 button. The Customer Accounts Turnover Amounts screen is displayed.\n\nAfter maintaining the required details, you can return to the Amounts and dates screen.\nStatus Details\nThe account status reflects the status of the account. The account may have a No Credit or\nNo Debit order issued against it or a Stop Payment order or it may have been frozen for some\nreason and therefore dormant.\nWhile posting transactions to the customer account, the system checks the status of the\naccount before the entry is processed. If the status of the account is dormant, then the system\nwill display an override message indicating the same.\nNSF Blacklist Status (Non Sufficient Fund)\nNSF Blacklist Status indicates that the customer account is blacklisted due to NSF rejection.\nIf cheque is rejected or returned due to NSF, the blacklisted formula is executed to get the\nnew NSF level of the customer. If the new NSF level is a blacklisted level, then the customer\naccount will be marked as a blacklisted and check book facility of all the customer\u2019s accounts\nwill be revoked.\n\nIn case the new NSF level is not a blacklisted level, then the customer is marked as a nonblacklisted customer and check book facility will be enabled for that customer account.\nFor Joint account:\n\nIf cheque is rejected due to NSF in a joint account, all of the customer\u2019s NSF level will\nbe changed from Level 1 to Level 2 and so on.\n\nCorporate or individual accounts:\n\nIf the blacklisted customer, is an authorized signatory in a corporate account, then the\ncorporate account will not be frozen.\n\nIf a corporate customer is blacklisted due to cheque return, then the authorized signatories are not blacklisted and their individual accounts will not be blacklisted.\n\nNote\nNSF blacklist status is an indicator in the account to indicate the blacklist status. System\nwill continue to support the credit or debit transaction of the account.\n\n3.2.2.7\n\nSpecifying Nominees\nFirst Nominee\nYou can nominate two persons who would have the right to the balances in your account after\nthe account holder\u2019s demise\nSubsequent to the account holder, the first nominee is called to claim the balances in the\naccount. If the first nominee is no more or is missing then the second nominee is called upon\nto claim the balances in the account.\nSecond Nominee\nYou can nominate two persons who would have the right to the balances in your account after\nthe account holder\u2019s demise.\nSubsequent to the account holder, the first nominee is called to claim the balances in the\naccount. If the first nominee is no more or is missing then the second nominee is called upon\nto claim the balances in the account.\n\n3.2.3\n\nCapturing Auxiliary Details\nClick on the \u2018Auxiliary\u2019 tab to invoke the following screen.\n\n3.2.3.1\n\nCapturing Cheque Book Preferences\nAuto Reorder of Cheque Book\nCheck this box to automatically generate a reorder for chequebook, based on the number of\nleaves outstanding. This field will be enabled only if you have checked the \u2018Cheque Book\u2019\nCheck box.\nReorder Cheque Level\nThis field specifies the level at which the re-order of cheque book happens. Re-ordering of the\ncheck book is possible, only if the unused cheque leaves is equal or less than the re-order\nlevel. This field will be enabled only if you have checked the 'Auto Re-order of Cheque book'\ncheck box.\n\nReorder No of Leaves\nThis field specifies the number of leaves, which should be ordered for the new cheque book\n. This field will be enabled only if you have checked the \u2018Auto Re-order of Cheque book\u2019 check\nbox.\nCheque Book Name1 & Cheque Book Name 2\nSpecify the name mentioned in the cheque book, while printing the cheque leaf.\nNote\nIt is mandatory to specify cheque Book Name1 if the cheque book box is enabled in main\nscreen.\nMax No. of Cheque Rejections\nThe system defaults the value of maximum number of cheque rejections that can be allowed\nfor an account from the account class. However, you can modify it at the account level.\nNotes\n\u2013\n\nIf \u2018Max No of Cheque Rejections\u2019 is not maintained at customer account maintenance, system will not mark the cheque facility to \u2018N\u2019 for any number of cheque rejections.\n\n\u2013\n\nIf the bank resets the check book facility to \u2018Y\u2019 which was earlier updated to \u2018N\u2019 by\nthe system because of violation of max no of check rejections, the cheque rejection\ncount will be taken by the system freshly.\n\n\u2013\n\nAn override message is displayed when the user manually updates the cheque\nbook facility from \u2018N\u2019 to \u2018Y\u2019.\n\nAuto Cheque Book Request\nCheck this box if you want the system to create a request for the cheque book automatically,\nfor the account during account creation.\nWhen you check this box, the system allows you to capture cheque book request details in\nthe Cheque Book Request screen, as part of account creation.\n\n3.2.3.2\n\nCapturing ATM Details\nBranch\nSpecify the branch code of the account.\nATM Account Number\nSpecify the ATM account number in this field only if you have opted for the ATM facility for\nthat account. The ATM account number which is a numeric value will be used only for\ninformation purpose and no further processing will be done based on this field.\nDaily Amount Limit\nSpecify the daily limit of the amount that can be withdrawn from the ATM.\nDaily Count Limit\nSpecify the maximum number of times the customer is allowed to use ATM facility in a day.\nAuto Debit Card Request\nCheck this box, if you want the system to create a request for the debit card automatically, for\nthe account during account creation.\n\nWhen you check this box, the system allows you to capture debit card request details in the\nDebit Card Request Details screen, as part of account creation.\n\n3.2.3.3\n\nSpecifying Other Options\nEuro Cheques\nEuro chequebook can be issued to a customer whose account has checked for 'Euro\ncheques' option in the customer account maintenance screen the account should be a\naccount with EUR currency only.\nMT210 Required\nNotice to Receive message (MT210) is an advance notification to your account servicing\ninstitution that it will be receiving funds that are to be credited to your bank\u2019s account with that\ninstitution.\nFor a nostro account, you can specify whether the nostro agent (your account servicing\ninstitution) prefers to receive a Notice to Receive SWIFT message (i.e., MT 210) when it is\ndebited in the case of a funds transfer. To indicate that the message MT 210 is to be\ngenerated by default whenever the Nostro account is the debit account for a funds transfer,\nselect the 'MT 210 Required?' check box in the Customer Accounts Maintenance screen, for\nthe relevant Nostro account.\nIf you indicate so, an MT 210 is generated by default whenever this nostro account is being\ndebited during the posting of accounting entries in any transaction. This preference (to\ngenerate an MT 210 by default) can be over-ridden when you enter a contract involving a debit\nto the nostro account.\nOnce you have specified this preference for a nostro account, you can change it whenever\nnecessary. For instance, if you have not specified that an MT 210 be generated, you can\nunlock the record and specify the generation of MT 210. Conversely, if you have specified that\nMT 210 generation is applicable, you can unlock the record and specify that it is no longer\napplicable.\nLodgement Book (Deposit Slip Book)\nIf you have allowed the use of lodgment books for an account class, this specification is\ndefaulted for all customer accounts that use such a class. You can change the Account Class\ndefault and make the required specification.\nIf you wish to allow orders of lodgment books for individual customer accounts, you can\nindicate so, in the Customer Account Maintenance screen, by selecting the Lodgment Book\noption.\nConsolidated Certificate Required\nYou need to indicate whether consolidation for inward clearing is required at the Customer\nAccount level. This option gets defaulted from the Account Class Maintenance screen. If this\noption is unchecked in the Account Class Maintenance screen, then it cannot be enabled\nhere.\nThis option will process a consolidated entry for all the transactions for a customer in an\ninward clearing batch.\nPlease refer Clearing user manual for more information.\nBack Period Entry Allowed\nYou can choose to allow the posting of back-valued entries into the account by enabling the\nBack Period Entry Allowed option. If you choose not to restrict back period entries, you will be\nallowed to post journal entry transactions to past periods as long as the account is open.\n\nThis specification is defaulted from the account class linked to the account. You can choose\nto change it for a specific account.\nNote\nWhile posting back-valued transactions, the System verifies whether the Back Period Entry Allowed option has been enabled for the account. If the option has not been enabled\nan error message is displayed. This check is also performed while uploading journal entry\ntransactions.\nCRS Statement Required\nCheck this box to indicate that CRS statement is required.\nMT110 Reconciliation Required\nCheck this box to indicate that the MT110 reconciliation is required for the cheques received\nfor the account.\nIf the \u2018Positive Pay\u2019 option is selected, then MT110 reconciliation is not applicable.\nTo know more details about MT110 reconciliation, refer heading \u2018Processing MT110 Incoming\nMessage\u2019 in this chapter.\nDefault Waiver\nThis field allows default waiver of charges for clearing related transactions.\nTrack Receivable\nDuring liquidation of loan contracts as well as processing of retail teller contracts, if the system\ndetects insufficient funds in the settlement account, then you can choose to block the\nsubsequent credit that happens to the settlement account. In other words, the system will\ntrack the account for receivables (credits). As and when a credit happens, the funds will be\nallocated to the loan or retail teller contract, for liquidation. If the track receivable option is\nchecked for the account, the system will track the receivables for the account if sufficient\nfunds are not available in the account.\nThe allocation of funds will happen in a sequence that you specify at the account class level.\nThis is explained in the section titled \u2018Maintaining Account Classes\u2019.\nReferral Required\nReferral refers to the process of handling customer transactions, which force the accounts\ninvolved in such a transaction to exceed the overdraft limit. Examples of typical transactions,\nwhich force an account to move into overdraft, are Payment and Collections, Funds\nTransfers, Standing Instructions or Clearing transactions. Note that you should have checked\nthe box \u2018Referral Required\u2019 in the product preferences screen of the aforesaid modules and\nthe Clearing product applicable to them. The \u2018Referral Required\u2019 option is defaulted from the\naccount class linked to the account. You can change it for a specific account. If an account is\nmarked for referral, the details of transactions resulting in the account moving into Overdraft\nwill be sent to the referral queue. Note that charge, fee or interest debited to the customer\naccount will not be referred to the Referral Queue. You can view referral transactions in the\n\u2018Referral Queue Summary\u2019 screen\nFor further details on Referrals refer to the Processing Referrals in Oracle FLEXCUBE\nchapter of the Core Entities User Manual.\nProject Account\nCheck this box to track the working capital of the project.\n\nThis account will have a temporary overdraft line attached and banks will use this feature to\nfund working capital. The system will calculate the interest based on the T-OD used in the\ncommitment contract.\nWhenever project account is credited or debited, utilization transaction will be triggered in\nlimits based on the limit with lowest interest bearing. If no interest rate is available, it will use\nthe first available line.\nThis transaction will cascade to joint venture holder limits tracking which will utilize respective\nlines to the ratio of their share.\nSpend Analysis\nCheck this box to enable spend analysis for the account. If you check this box, the system will\nconsider all debit transactions from this account for spend analysis. If you do not check this,\nthe system will not consider the transactions for spend analysis.\n\n3.2.3.4\n\nSpecifying Statuses\nNo Debits\nNo debits can be posted to the account. For example, Silas Marner, a customer of your bank,\ngoing abroad for a year instructs you not to debits his account till his return. You can execute\nthis instruction by checking this box.\nNo Credits\nNo credits can be posted to the customer account by enabling the check box positioned next\nto this field\nStop Payments\nIf a stop payment instruction is issued (for a cheque or an amount) against the account\nnumber, the system will automatically check the \u2018Stop Payment\u2019 box. When the stop payment\ninstruction is withdrawn, the status gets updated accordingly. If a customer has requested for\nstop payment of multiple cheques, the \u2018Stop Payment\u2019 option will continue to remain checked\ntill the last request is also cancelled. After cancellation of the last stop payment instruction,\nthe option gets updated (unchecked) immediately.\nDormant\nThe system updates this status for an account based on the dormancy days specified in the\nAccount Class Maintenance screen\nFrozen\nIf you have frozen a customer account in the \u2018Customer Information Maintenance \u2013 Basic\u2019\nscreen the accounts gets frozen. For instance, at the behest of a court order, the status of the\naccount is reflected here in the \u2018Customer Accounts Maintenance\u2019 screen.\nPosting Allowed\nThe system checks or unchecks this check box based on the value maintained at Account\nClass level.\nThis check box facilitates Inter-branch Accounting through Entity/Accounts instead of GLs.\nThe accounts maintained for these Inter-Branch transactions are used only for posting system\ngenerated Inter-Branch entries and not for any direct posting using \u2018Journal Entry\u2019 or Teller\nTransaction screens.\nStatus Change Automatic\nThis specification will be defaulted from the account class to which the account belongs.\nHowever, you have the option of changing it at the customer account level. If you check this\noption, the status of the account will be changed automatically by the system as per the\nconditions maintained in the \u2018Status Rule Definition\u2019 screen (invoked from the Account Class\n\nMaintenance screen). If you do not select this option, you have to change the status manually\nthrough the \u2018Manual Status Change\u2019 screen.\nFor details on conditions maintained in the \u2018Status Rule Definition\u2019 screen, refer the chapter\n\u2018Maintaining Mandatory Information\u2019 in the Core Entities user manual.\nOverdraft\nThe system displays a check in the check box if the customer account has overdraft facility.\nThe system checks or un-checks the check box based on the information available in Account\nClass Maintenance.\nNote\nIf you want to amend any of above statuses, you can do only via 'Manual Status Input'\nscreen.\n\n3.2.3.5\n\nSpecifying Status Details\nStatus\nAt the time of maintaining a customer account for the first time, the account status will be\n\u2018NORM\u2019 (Normal) by default. The \u2018Status Since\u2019 field will display the current system date i.e.\nthe date on which the account is maintained in the system. The system will update the status\nwhenever a status change occurs. Therefore, at any point of time, this field will display the\ncurrent status of the account. The \u2018Since\u2019 field will reflect the date on which the account moves\nto the current status.\nSubsequently, the system will default the value of CIF Status as available in the \u2018Customer\nMaintenance\u2019 screen. This status is the worst status among all the loans, savings accounts\nand current accounts for the customer in the current branch.\nNote\nThis is done if you have opted for status processing at the \u2018Group/CIF\u2019 level as part of your\nbranch preferences.\nSince\nThe date on which the status of the account is changed to the current status is displayed here\nPropagate Reporting Details\nThis field indicates whether the reporting lines defined for status movement, for the account\nclass that this account reports to, must also be applicable to it.\nThe following GL\u2019s are defined in the Account Class Maintenance for posting account\nbalances when a status movement occurs on any accounts belonging to the account class:\n\nThe Debit and Credit GL\u2019s to which account balances must be posted, for movement to\neach status\n\nThe Central Bank Reporting Debit and Credit GL\u2019s\n\nHead Office Reporting Debit and Credit GL\u2019s\n\nWhen you select this option, the GL\u2019s maintained for the account class will be applicable to\nthe customer account you are defining in this screen. The reporting lines will be propagated\nto the account whenever a status change occurs.\nIf you do not want the account class details to be propagated to the account as well, you have\nthe option of maintaining the status codes and the reporting lines exclusively for an account.\n\nYou can achieve this through the \u2018Status Details\u2019 screen. Click the \u2018Account Status\u2019 button in\nthe Customer Accounts Maintenance screen to invoke it.\nAccount Auto Closed\nThe system checks this box to indicate that the account has been closed automatically\nthrough the auto account closure feature. You will not be allowed to modify this.\nAccount Derived Status\nThe system displays the current status of the account here. This is applicable for CASA\naccounts (current accounts and savings accounts)\nDormancy Parameters\nIf Transaction Code associated with the account has the Consider for Account Activity option\nenabled, the dormant status of the account will be updated to Active. Apart from this, you can\nspecify the parameter that is required for re-activating the account. Choose from the following\noptions to indicate the re-activation parameters for the dormant account.\n\nDebit \u2013 If you do any debit transaction the dormant check box will be unchecked automatically\n\nCredit \u2013 If you do any credit transaction the dormant check box will be unchecked automatically\n\nAny \u2013 If you do any credit/debit transaction, the dormant check box will be unchecked\nautomatically\n\nManual \u2013 The dormant check box needs to be unchecked manually from the 'Manual\nStatus Change' screen\n\nIn case of a transaction, the system will check for the parameter you have specified here and\naccordingly change the status of the account. The parameter you specify here will supercede\nthe parameter you have maintained at the account class level.\n\n3.2.3.6\n\nSpecifying Intermediary Options\nIntermediary Required\nCheck this box to link Intermediaries with CASA.\nIntermediary Code\nSpecify the intermediary code from the adjoining option list.\nIntermediary Description\nThe system gives a brief description about intermediary code.\nIntermediary Ratio\nSpecify the ratio of individual intermediary contribution against the CASA account.\n\n3.2.3.7\n\nCapturing Escrow Transfer Details\nEscrow transfer processing refers to transfer of certain percentage of credit amount that\ncomes to project account (Trust account) to the designated account (Escrow account). This\nis based on defined transaction codes and cut-off time defined for the account currency.\nTransactions with the transaction code and credit account for which the box \u2018Escrow\nProcessing\u2019 is checked in the \u2018Transaction Code Maintenance\u2019 screen are considered for the\nEscrow sweeps. The system computes percentage of credit amount and places an amount\nblock on project account.\n\nYou can view the details of such system generated Escrow amount blocks using the \u2018Amount\nBlock Maintenance\u2019 screen (CADAMBLK) wherein the field \u2018Amount Block Type\u2019 will display\n\u2018Escrow\u2019.\n\nEscrow Transfer Applicable\nThis box is checked by default if the customer account belongs to an account class for which\nEscrow transfer is enabled.\nNote\nThis box should be checked for Project/Trusted account(s) only.\nBranch Code\nSelect the branch code in which the Escrow account has to be created from the adjoining\noption-list.\nEscrow Account\nSelect a valid account to be used as an Escrow account from the adjoining option-list. The list\ndisplays all valid accounts based on the selected Escrow branch and the currency of the\nproject account.\nNote\nThe system does not allow the circular linkage of Project account and Escrow accounts.\nEscrow Percentage\nSpecify the percentage of the credited amount, which has to be transferred to the Escrow\naccount.\n\nNote\nThe Escrow percentage specified here will be same for all transactions and will not vary\nfor different credits like cash, cheque, draft etc.\n\n3.2.3.8\n\nCapturing Provisioning Details\nAn account inherits the provisioning parameters defined for the account class it uses. You can\nchange the defaulted parameters and make the following specifications, as required, in the\nProvision Details section of the Customer Account Maintenance screen:\nAuto Provisioning Required\nYou can indicate whether the provisioning for bad loans in corporate loans and deposits\nmodule is applicable for the account. If you indicate so, the provisioning batch, when\nexecuted, picks up the account for provisioning.\nExposure Category\nIf the logic for deriving the exposure category of the CIF or customer group to which the\ncustomer belongs, based on the total exposure, has been maintained in the Exposure Type\nCategory Linkage maintenance, then the exposure category of the account is identified. If no\nlogic has been maintained, you can specify the exposure category in the Customer Account\nMaintenance screen.\nRisk Free Exposure Amount\nYou can indicate the risk-free collateral amount that would be used in computing the\nprovisioning amount for the account.\nProvisioning Currency\nYou can indicate the currency in which the provisioning amount must be calculated \u2013 either\naccount currency or local currency. This specification is defaulted from the preferences for the\naccount class used by the account, and you can alter it if necessary.\nIn addition to the provisioning preferences listed above, you must also indicate the applicable\nprovisioning percentage and the discount percentage details in the Provision Percentages\nscreen that you can invoke by clicking on the \u2018Provisioning Percentage\u2019 button in the\nProvisioning Details section of the \u2018Customer Account Maintenance\u2019 screen.\n\nAccount Number\nThe system displays the customer account number\n\nStatus\nSpecify the status of the account for which you are maintaining provisioning percentages. The\nadjoining option list displays all valid status codes maintained in the system. Select the\nappropriate one.\nProvision Percent\nIf you wish to indicate a specific provisioning percentage to be applicable for the account, you\ncan specify it in the Provisioning Percentage screen.\nIf you do not specify any provisioning percentage, the provisioning batch picks up the\napplicable provisioning percentage from the Exposure Provisioning Percentage Maintenance,\nfor the exposure category of the account and the account status.\nDiscount Percentage\nIf you wish to indicate a specific discount percentage to be applicable for the account, you can\nspecify it in the Provisioning Percentage screen.\nIf you do not specify any discount percentage, the provisioning batch picks up the applicable\ndiscount percentage from the Exposure Provisioning Percentage Maintenance, for the\nexposure category of the account and the account status.\n\n3.2.3.9\n\nCapturing Positive Pay\nPositive Pay\nFor the account you are maintaining, you can specify whether you want positive pay facility\nfor the account or not. When a check comes in for payment, the system validates for any\nunpaid record only for those accounts that are under positive pay. For all the other accounts\nthat are not specified for positive pay, the system does not do any validation before making\npayments for the checks.\nFunding\nIf you enable \u2018Funding\u2019, accounting entries will be posted by the Positive Pay maintenance/\nupload table for the positive pay transaction. You have to enable \u2018Positive Pay\u2019 to make use\nof \u2018Funding\u2019 functionality. If \u2018Positive Pay\u2019 is not enabled, \u2018Funding\u2019 option will not be\napplicable.\nIf \u2018Funding\u2019 is not selected, accounting entries will not be passed for positive pay transactions.\nNote\nYou cannot enable both \u2018Deferred Reconciliation\u2019 and \u2018Funding\u2019 functionalities. You have\nto choose between either of them for a particular account.\nMod 9 Validation Required\nYou can enable Mod 9 Validation for positive pay accounts only. Only if positive pay enabled\nthen Mod 9 Validation will be active.\nIn the case of inward clearing of Positive Pay files, if Modulo 9 is enabled for the product, the\nsystem performs a Modulo 9 Validation on any new cheque. If the cheque fails modulo 9\nvalidations the system will display an error message on save. In case of check replacement\nthe Modulo 9 Validation is done for the new check number while in case of alphanumeric\nchecks, the system throws an error message if modulo 9 validation is checked.\nWhen uploading a positive pay cheque the system will perform a Modulo 9 Validation if\nModulo 9 validation is enabled for the product. If the validation fails, this particular check will\nnot be uploaded. The same will be valid in case of Cheque Replacement while for\nalphanumeric checks, system will skip the check and display an error.\n\nStale Days\nIf you have specified a positive pay facility for the account you are maintaining, then you have\nto indicate the number of stale days for the transaction. If the date of processing happens after\nthe specified stale date then the transaction gives an exception error. You have to do an\noverride for this exception.\nFund Branch\nClick on the adjoining option list to choose from the list of branches maintained. The positive\npay parking account will be picked from this branch.\nDeferred Reconciliation\nEnabling this check box indicates whether or not the Positive Pay account has the Deferred\nReconciliation facility. Deferred Reconciliation is the facility wherein a Positive pay cheque,\nwhich is free of any disparity, is cleared by the bank even in the absence of any instruction\nfrom the drawer of the cheque. The instruction can be deferred. Deferred Reconciliation\nfunction goes hand-in-hand with the Positive Pay described above and Deferred\nReconciliation is applicable only for Positive Pay Accounts\n\nIf Positive Pay = No and Deferred Reconciliation = No, the cheque is subjected to the\nusual validations and is Rejected if:\n\u2013\n\nThere is any discrepancy in the instrument\n\n\u2013\n\nThere is a Stop payment instruction issued against the instrument\n\nIf Positive Pay = Yes and Deferred Reconciliation = No, Cheque is subject to the usual\nvalidations and processing\n\nIf Positive Pay = Yes and Deferred Reconciliation = Yes, and if any one or more of the\nthree fields viz. Branch, Account No., Cheque No. , does not match with the Positive Pay\ninstruction, the cheque will be put under Deferred Reconciliation as Unreconciled\n\nIf this unreconciled cheque comes in for clearing once again with the same set of parameters, it is Rejected\n\nIf Positive Pay instruction is received for an Unreconciled cheque, it is marked Reconciled and the cheque status is marked Liquidated\n\nIf Positive Pay = Yes and Deferred Reconciliation = Yes, and the Amount field does not\nmatch with the Positive Pay instruction, the check is Rejected outright\n\nAll data pertaining to reconciled and unreconciled cheques are maintained and information\nregarding account no., cheque no., amount and status of the instrument [reconciled or\nunreconciled] can be retrieved if needed.\nAn EOD batch function will purge all reconciled cheques as part of the clearing batch process.\nDuring the upload process, validation is done against all the positive pay, the deferred\nreconciliation flags combinations, and all Unreconciled Positive Pay Instructions are marked\nas Reconciled and liquidated.\nDeferred reconciliation will be overridden by a stop payment instruction if any. An error\nmessage (or an override) will be shown if a Cheque that comes in for clearing has a stop pay\ninstruction against it but has no positive pay instruction.\nFunding Account\nClick on the adjoining option list to choose the account into which funds have to be transferred\non receipt of a positive pay instruction. The accounts that satisfy the following conditions will\nbe available in the list of \u2018Positive Pay Parking Account\u2019:\n\nBoth accounts belong to the same customer\n\nThe currency of both the accounts is the same\n\nValidation Digit\nValidation digit will be having values only 0 and 9. If validation digit is 9, then 9 - mod 9\nremainder for the check number (Excluding the check digit) should be equal to the check digit\nfor the check to be passed else the check is rejected.\nThe check digit is the last digits of the check i.e. if check number is 1800 then check digit is\n0. The mod 9 remainder of the check number should be equal to the check digit for the check\nto be passed if validation digit in customer accounts maintenance is 0 else the check is\nrejected.\n\n3.2.3.10 Capturing Sweep\nEnable Sweep In\nThe system checks or unchecks the check box based on the status maintained at Account\nClass Maintenance level.\nEnable Reverse Sweep in\nThe system checks or unchecks the check box based on the status maintained at Account\nClass Maintenance level.\n\n3.2.3.11 Viewing Passbook Details\nSystem displays the passbook details here,\nPassbook Number\nThe system displays the latest passbook number. You cannot modify the value.\nPassbook Status\nThe system displays the current status of the passbook. You cannot modify the value\nNote\nPassbook details get populated once the passbook is issued for the customer account with\nthe latest status and latest passbook number issued.\n\n3.2.3.12 Specifying Turnover Limit Preferences\nThe account inherits the turnover limit code linked to the parent account class.\nTurnover Limit Code\nThe system displays the turnover limit code applicable to the account.\n\n3.2.3.13 Specifying Other Options\nDefault Waiver for Maintenance Screen\nThe system checks this box by default, to indicate that maintenance charge is waived.\n\n3.2.4\n\nSweep In and Sweep Out Batch Processing\nThe Sweep In and Sweep Out process is handled by an EOD batch STSWEEP. All the utilized\ndeposit accounts in a day are fetched by the batch STSWEEP due to CASA linkage. The\namount block is then released to the CASA account by breaking the deposit.\n\nSweep In Process\nDuring Sweep In Process the system:\n\nReleases the amount blocked for the deposit accounts for the utilized amount.\n\nTransfers the amount to relevant CASA account.\n\nUpdates the deposit account balance.\n\nNote\nOther deposits are considered only after utilizing cover account created for account.\n\nSweep Out Process\nDuring Sweep Out process the system:\n\nCheck for the credit balance in the CASA account.\n\nTransfer the credit balance or the linked amount to the relevant deposit account.\n\nUpdates the utilized amount for the transferred amount.\n\nNote\nOther deposits are considered only after utilizing cover account created for account.\n\n3.2.5\n\nSpecifying Nominee Details\nClick \u2018Nominee\u2019 tab in the \u2018Customer Accounts Maintenance\u2019 screen in order to capture\nnominee details for the account.\n\nSpecify the following details:\nName\nSpecify the name of the nominee of the account.\nDate of Birth\nSpecify the date of birth of the account nominee.\n\nRelationship\nSpecify the relationship that the nominee shares with the primary account holder.\nAddress 1 \u2013 4\nSpecify the address of the nominee.\nMinor\nCheck this box to indicate that the nominee is a minor (less than 18 years old).\nGuardian Name\nIn case the nominee is a minor, specify the name of the nominee\u2019s guardian.\nRelationship\nSpecify the relationship that the nominee shares with the guardian.\nAddress 1 \u2013 4\nSpecify the guardian\u2019s address.\n\n3.2.6\n\nCapturing Checklist Details\nClick the \u2018Check List\u2019 tab from the \u2018Customer Accounts Maintenance\u2019 screen to capture the\ndetails of document types that are to be maintained.\n\nSpecify the following details:\n\nDocument Type\nSpecify the document type. The adjoining option list displays all the document types that are\nmaintained in the system. You can select the appropriate one.\nMandatory\nCheck this box to indicate that the document specified here is mandatory.\nExpiry Date\nSpecify the expiry date of the document provided by the customer.\nNote\nExpiry date will always be greater than \u2018Expected Date of Submission\u2019 and \u2018Actual Submission Date\u2019.\nExpected Date of Submission will always be greater than current date.\nExpected Date of Submission\nSpecify the expected date on which the customer is accepted to submit the required\ndocuments.\nActual Date of Submission\nSystem displays the actual date on which customer has submitted the required documents.\nDocument Reference\nSystem defaults the document reference here.\nChecked\nCheck this box to indicate that the received documents are acknowledged.\nNote\nYou cannot save and authorize an account if the mandatory documents are not confirmed\nas \u2018Checked\u2019.\nUpload\nClick on this button to upload the selected document type.\nDelete\nClick on this button to delete the selected document.\nView\nClick on this button to view the selected document.\n\nDocument Notification Details\nSystem defaults notification details from the \u2018Account Class Maintenance\u2019 screen.\nSend Notification\nThis check box indicates whether to send notifications or reminders for not submitting the\nmandatory documents.\nReminder Frequency (Notification)\nSystem defaults the frequency of notification to be sent. The frequency can be one of the\nfollowing:\n\nDaily\n\nWeekly\n\nMonthly\n\nQuarterly\n\nHalf yearly\n\nYearly\n\nNotes\nNotification will be sent only if,\n\u2013\n\nThe check box \u2018Send Notification\u2019 is checked in Account Class Maintenance\u2019\nscreen.\n\n\u2013\n\nThe account status is active and authorized.\n\n\u2013\n\nThe mandatory documents are not submitted.\n\nNotifications will be sent based on the frequency specified.\nFirst notification will be sent on the expected date of submission or expiry date\nIf notification date falls on a holiday then system will send the notification on next working\nday.\nDays (Reminder)\nSystem defaults the number of days left for the expiry or submission due date of the\ndocuments for sending the reminder.\nSystem will send the following reminders:\n\nReminder prior to the submission due date of the document.\n\nReminder prior to the expiry date of the document.\n\nOverdue notifications after the due date if the document is not submitted based on the\nfrequency.\n\nNotifications after the expiry date if the document is not submitted after the expiry date.\n\nNote\nReminder will be sent only if,\n\u2013\n\nThe mandatory documents are not submitted.\n\n\u2013\n\nThe account status is active and authorized.\n\nReminder will be sent only once.\nIf reminder date falls on a holiday then system will send the notification on next working\nday.\nReminder will be sent prior the number of days specified at the account level from expected date of submission or the expiry date.\nIf there are more than one notifications or reminders of the same message type for which the\nnotification schedule date falls on the same day for the same account, a single notification will\nbe sent which will have the details of all the related documents.\nRemarks 1 to 10\nSpecify the additional information, if required.\n\n3.2.7\n\nCapturing Additional Details\nYou can capture additional details for the account by clicking the following buttons in the\n\u2018Customer Accounts Maintenance\u2019 screen:\nButton\n\nFunction\n\nInterest\n\nThis invokes the \u2018IC Special Conditions Maintenance\u2019 screen.\n\nCharges\n\nThis invokes the \u2018Account level charges conditions\u2019\nscreen.\n\nConsolidated\nCharges\n\nThis invokes the \u2018Account Level Consolidated\nCharges Conditions\u2019 screen.\n\nBIC\n\nThis invokes the \u2018Authorized SWIFT BICs for Customer Account\u2019 screen.\n\nInstructions\n\nThis invokes the \u2018Account Operating Instructions\nMaintenance\u2019 screen.\n\nStanding Instructions\n\nThis invokes the \u2018Instruction Diary Summary\u2019\nscreen.\n\nLinked Entities\n\nThis invokes the \u2018Linked Entities\u2019 screen.\n\nREG\n\nThis invokes the \u2018REG Details\u2019 screen.\n\nAccount Status\n\nThis invokes the \u2018Status Details\u2019 screen.\n\nRestrictions\n\nThis invokes the \u2018Products and Transaction Codes\nRestriction\u2019 screen.\n\nCurrency Limits\n\nThis invokes the \u2018Limits\u2019 screen.\n\nMIS\n\nThis invokes the \u2018Management Information System\u2019\nscreen.\n\nStatement\n\nThis invokes the \u2018Statement Details\u2019 screen.\n\nLimits\n\nThis invokes the \u2018Account Limits\u2019 screen.\n\nJoint Holders\n\nThis invokes the \u2018Joint Holder screen.\n\nFields\n\nThis invokes the \u2018UDF\u2019 screen.\n\nButton\n\nFunction\n\nDeposits Instruction\n\nThis invokes the \u2018Deposits Instruction\u2019 screen.\n\nBilling Parameters\n\nThis invokes the \u2018Billing Parameters\u2019 screen.\n\nAccount Signatory\n\nThis invokes the \u2018Signatory Details\u2019 screen.\n\nInterim Transactions\nReport\n\nThis invokes the \u2018Interim Transactions Report\u2019\nscreen.\n\nNotice\n\nThis invokes the \u2018Notice Preferences\u2019 screen\n\nCards\n\nThis invokes the \u2018Cards Summary\u2019 screen.\n\nStatistics\n\nThis invokes the \u2018Account Statistics\u2019 screen.\n\nCheque Book\nRequest\n\nThis invokes the \u2018Cheque Book Request\u2019 screen.\n\nDebit Card Request\n\nThis invokes the \u2018Debit Card Details\u2019 screen.\n\nSweep In Setup\n\nThis invokes the \u2018Sweep Structure Maintenance\u2019\nscreen,\n\nDocuments\n\nThis invokes the \u2018Document Upload\u2019 screen,\n\nChange Log\n\nThis invokes the \u2018Customer Address Change Log\u2019\nscreen.\n\n3.2.8\n\nSpecifying Interest Details\nYou can capture details of interest for the account, using the \u2018IC Special Conditions\nMaintenance\u2019 screen. Click the \u2018Interest\u2019 button in the \u2018Customer Accounts Maintenance\u2019\nscreen to invoke this screen.\n\nSpecify the following details:\nInterest Booking Branch\nBy default, the customer\u2019s account in the current branch will be displayed in this screen (in the\nInterest/Charge Booking Account and Interest/Charge Booking Branch fields). However, you\nhave the option of booking interest/charge to a different account belonging to another branch\nalso. You can select the Interest/Charge Booking Branch from the option-list available. ]The\naccounts maintained in the selected Booking Branch will be available in the option-list\nprovided for Interest/Charge Booking Account. You can select the account from this list.\nInterest/Charge will be liquidated into the selected account.\nInterest Booking Account\nYou can select the accounts for booking interests on transactions processed at your bank.\n\nAt the time of creating an IC product, if you have maintained the booking account type as\nInterest (in the \u2018Interest and Charges \u2013 Product Definition\u2019 screen), the Interest will be\nliquidated into the Interest Booking account. By default, the customer\u2019s account in the current\nbranch will be displayed in this screen (in the \u2018Interest Booking Account\u2019 field). However, you\nhave the option of booking interest to a different account belonging to another branch also.\nThe accounts maintained in the selected Booking Branch will be available in the adjoining\noption list. You can select the appropriate account. Interest will then be liquidated into the\nselected account.\nCalculation account\nSpecify the calculation account. When you specify a calculation account, then all balances\nand turnovers for the specified account are clubbed with the balances and turnovers for the\ncombined account for calculation purposes.\nCharge Booking Branch\nBy default, the customer\u2019s account in the current branch will be displayed in this screen (in the\nInterest/Charge Booking Account and Interest/Charge Booking Branch fields). However, you\nhave the option of booking interest/charge to a different account belonging to another branch\nalso. You can select the Interest/Charge Booking Branch from the option-list available. The\naccounts maintained in the selected Booking Branch will be available in the option-list\nprovided for Interest/Charge Booking Account. You can select the account from this list.\nInterest/Charge will be liquidated into the selected account.\nCharge Booking Account\nYou can select the accounts for booking charges on transactions processed at your bank\nAt the time of creating an IC product, if you have maintained the booking account type as\nCharge (in the \u2018Interest and Charges \u2013 Product Definition\u2019 screen), the charge will be\nliquidated into the Charge Booking account. By default, the customer\u2019s account in the current\nbranch will be displayed in this screen (in the \u2018Charge Booking Account\u2019 field). However, you\nhave the option of booking charge to a different account belonging to another branch also.\nThe accounts maintained in the selected Charge Booking Branch will be available in the\nadjoining option list. You can select the appropriate account. Charges will then be liquidated\ninto the selected account.\nInterest Statement\nYou can also indicate if you would like to generate an interest statement for the account. The\nInterest Statement will furnish the values of the SDEs and UDEs and the interest rule that\napplies on the account.\nConsolidated Charge Branch\nBy default it will be same as the current branch. However you can select the branch of the\nconsolidated charge account from the adjoining option list.\nConsolidated Charge Account\nThe consolidated charge will be a group of charge products that are linked to one IC product.\nSelect the account that is identified as the master account for collecting the consolidated Fall\nBelow Fee.\nThe Fall Below Fee is a kind of fee that is charged if sum of average monthly balance of all\nthe accounts is less than the minimum required balance.\nNotes\n\u2013\n\nThe master account should be in the same currency as of the other account currencies.\n\n\u2013\n\nFor the master account, the field should be left blank. This master account is maintained as consolidated charge account on the other set of accounts.\n\n\u2013\n\nAll the accounts should be belonging to the same customer.\n\n\u2013\n\nThe Fall Below Fee is waived if the master account or any one of the account has\noverdraft facility.\n\nDr Cr Advices\nYou can indicate whether you want to generate an interest liquidation advice for a customer\naccount. Check the \u2018Debit/Credit Advices\u2019 box to indicate that the system must generate\npayment advices when interest liquidation happens on an account. The advices are\ngenerated in the existing SWIFT or/and MAIL format. No advices will be generated if you\nleave this box unchecked.\nThe preference you have made in the Customer Account Class screen will be defaulted here.\nHowever, you can choose to change your preference to generate or suppress these Advices.\nInterest Start Date\nFor the account for which you are defining special conditions, you must specify the date from\nwhich you would like to apply interest. Interest for this account will be calculated according to\nthe special conditions that you define subsequently.\nCharge Start Date\nFor the account for which you are defining special conditions, you must specify the date from\nwhich you would like to apply charges. Charges for this account will be calculated according\nto the special conditions that you define subsequently.\nBy default, charges on an account would be applied when the free banking period (if any)\nelapses. This means that the Charge Start Date is arrived at by the System by adding the Free\nBanking Period days (if any, specified for the account class used by the account) to the\nAccount Opening Date. If no Free Period has been indicated for the account class used by\nthe account, the Charge Start Date is defaulted to the Account Opening Date (that is, charges\non the account would be applied right from the account opening date) and displayed in the\nSpecial Conditions Maintenance screen.\nYou can override the default Charge Start Date and specify the desired start date for charge\napplication.\nProduct\nTo calculate interest for an account, you must apply an interest product on the account. To\nrecall, every interest product that you create is linked to an interest rule. The logic to calculate\ninterest is built into an interest rule. When you apply an interest product on the account,\ninterest for the account will be calculated according to the interest rule definition.\nFor the account for which you are defining special conditions choose the product(s) that you\nwish to apply. To recall, you can define a Special Condition for an account only if the account\nclass of the account has a General Condition defined for the product. Thus, the picklist from\nwhere you select the product for which you want to define a Special Condition will contain\nproducts that satisfy one of the following conditions:\n\na General Condition has been defined for the product and account class combination\n\nthe product has been defined as a special conditions only product\n\nThe interest rule that is linked to the product(s) will determine the interest that is applied on\nthe account.\nYou may want to apply more than one interest product on an account. For example, you may\nwant to pay credit interest on the credit balance maintained in a current account and levy a\n\ndebit interest if the account lapses into a debit balance. In order to achieve this, you would\nhave to apply two products (one defined for credit interest and another defined for debit\ninterest). In this screen, you can choose the interest products that you want to apply on an\naccount.\nNote\nThe UDE currency, defined for the product (in the Interest Product Preferences screen)\nthat you apply on the account, is displayed. Note that the UDE values that you specify for\nthe account subsequently will be taken to be in this currency.\nYou can opt to generate an advice, for the benefit of the customer, when the values of the\nUDEs defined for the interest rule change.\nGenerate Rate Change Advice\nCheck the box \u2018Generate UDE change advice\u2019 at account level, to indicate that interest rate\nchange advice has to be generated for the account at EOD. System generates interest rate\nchange advices for Customer Accounts and Savings accounts when the interest rate changes\nas part of EOD. For those accounts, when interest rate changes the details are handed off for\nrate change advice generation and the same is generated in the pre determined swift format\nas per MT 935.\nThe advice tag used for interest rate change is RTCHG_ADVICE.\nThe advice format for interest rate change as per MT935 is given below:\nContent/\nOptions\n\nStatus\n\nTag\n\nField Name\n\nM\n\n20\n\nTransaction Reference Number\n\n16x\n\nUnique Transaction\nReference Number\ngenerated by system\n\nO\n\n23\n\nFurther Identification\n";
+
+const WORKER_URL = "https://claude-proxy.adityajoardar.workers.dev";
+
+const runBtn = document.getElementById("run-btn");
+const statusLine = document.getElementById("status-line");
+const resultsList = document.getElementById("results-list");
+const sourceEl = document.getElementById("source-text");
+const summaryBar = document.getElementById("summary-bar");
+const fileInput = document.getElementById("file-input");
+const uploadStatus = document.getElementById("upload-status");
+const docNameEl = document.getElementById("doc-name");
+let currentResults = [];
+
+sourceEl.textContent = SPEC_TEXT;
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function extractTextFromFile(file) {
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (ext === "txt") {
+    return await file.text();
+  }
+  if (ext === "pdf") {
+    if (typeof pdfjsLib === "undefined") {
+      throw new Error("PDF reader library failed to load — check your internet connection and reload the page");
+    }
+    const buf = await file.arrayBuffer();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let text = "";
+    const maxPages = Math.min(pdf.numPages, 60);
+    for (let p = 1; p <= maxPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      text += content.items.map(it => it.str).join(" ") + "\n\n";
+    }
+    return text;
+  }
+  if (ext === "docx") {
+    if (typeof mammoth === "undefined") {
+      throw new Error("DOCX reader library failed to load — check your internet connection and reload the page");
+    }
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    return result.value;
+  }
+  throw new Error("Unsupported file type: ." + ext);
+}
+
+fileInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  uploadStatus.textContent = "Reading " + file.name + "\u2026";
+  try {
+    let text = await extractTextFromFile(file);
+    text = text.replace(/\u0000/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    if (!text || text.length < 30) {
+      throw new Error("No readable text found in this file");
+    }
+    const MAX_CHARS = 100000;
+    if (text.length > MAX_CHARS) {
+      text = text.slice(0, MAX_CHARS);
+      uploadStatus.textContent = file.name + " loaded (truncated to first ~" + Math.round(MAX_CHARS/1000) + "k chars) \u2014 " + text.split(/\s+/).length + " words";
+    } else {
+      uploadStatus.textContent = file.name + " loaded \u2014 " + text.split(/\s+/).length + " words";
+    }
+    SPEC_TEXT = text;
+    docNameEl.textContent = file.name;
+    sourceEl.textContent = SPEC_TEXT;
+    resultsList.innerHTML = '<div class="empty-state">Click <strong>Analyse spec</strong> to run the agent.</div>';
+    summaryBar.style.display = "none";
+    statusLine.textContent = "Ready \u2014 new document loaded";
+  } catch (err) {
+    uploadStatus.textContent = "Couldn't read " + file.name + ": " + err.message;
+  }
+});
+
+function highlightSource(snippet) {
+  const raw = sourceEl.textContent;
+  const idx = raw.indexOf(snippet);
+  if (idx === -1) return;
+  const before = raw.slice(0, idx);
+  const match = raw.slice(idx, idx + snippet.length);
+  const after = raw.slice(idx + snippet.length);
+  sourceEl.innerHTML = escapeHtml(before) + '<span class="hl">' + escapeHtml(match) + "</span>" + escapeHtml(after);
+  const hl = sourceEl.querySelector(".hl");
+  if (hl) hl.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function effortBadge(level) {
+  const l = (level || "").toLowerCase();
+  return '<span class="badge badge-effort-' + l + '">' + (level || "?") + " effort</span>";
+}
+function riskBadge(level) {
+  const l = (level || "").toLowerCase();
+  return '<span class="badge badge-risk-' + l + '">' + (level || "?") + " risk</span>";
+}
+
+function renderCard(item, index) {
+  const card = document.createElement("div");
+  card.className = "req-card";
+  card.style.animationDelay = (index * 0.04) + "s";
+  card.innerHTML =
+    '<div class="req-head">' +
+      '<div class="req-title">' + escapeHtml(item.requirement) + "</div>" +
+      '<div class="badges">' + effortBadge(item.effort) + riskBadge(item.risk) + "</div>" +
+    "</div>" +
+    '<div class="req-row"><b>Manual pain point:</b> ' + escapeHtml(item.pain_point) + "</div>" +
+    '<div class="req-row"><b>Recommendation:</b> ' + escapeHtml(item.ai_solution) + "</div>" +
+    '<div class="req-technique"><i class="ti ti-bulb" aria-hidden="true"></i>' + escapeHtml(item.approach) + "</div>";
+  resultsList.appendChild(card);
+  if (item.source_snippet) highlightSource(item.source_snippet);
+}
+
+function renderSummary(items) {
+  const aiWorthy = items.filter(i => (i.approach || "").toLowerCase() !== "no ai needed").length;
+  const highRisk = items.filter(i => (i.risk || "").toLowerCase() === "high").length;
+  const lowEffort = items.filter(i => (i.effort || "").toLowerCase() === "low").length;
+  summaryBar.style.display = "grid";
+  summaryBar.innerHTML =
+    '<div class="metric-card"><div class="metric-label">Requirements found</div><div class="metric-value">' + items.length + "</div></div>" +
+    '<div class="metric-card"><div class="metric-label">AI/automation candidates</div><div class="metric-value">' + aiWorthy + "</div></div>" +
+    '<div class="metric-card"><div class="metric-label">Low-effort wins</div><div class="metric-value">' + lowEffort + "</div></div>" +
+    '<div class="metric-card"><div class="metric-label">High-risk flags</div><div class="metric-value">' + highRisk + "</div></div>";
+}
+
+const SYSTEM_PROMPT = "You are a solutions architect analysing a business functional/user-guide specification to find automation and AI opportunities for a consulting client.\n\nFor EACH distinct manual process, field-entry step, decision point, or repetitive task described in the spec, produce one object with these exact keys:\n- requirement: short name of the process/step (max 10 words)\n- pain_point: the manual effort or inefficiency in this step, in plain business language (1 sentence)\n- ai_solution: a concrete recommendation \u2014 either a specific AI/automation technique, OR explicitly state 'No AI needed \u2014 rules suffice' if the step is simple, deterministic, or low-value for AI. Do not force AI everywhere.\n- approach: short label for the technique (e.g. 'OCR + document classification', 'Rules-based STP', 'NLP intent matching', 'Anomaly detection', 'No AI needed')\n- effort: one of Low, Medium, High (implementation effort)\n- risk: one of Low, Medium, High (operational/compliance risk of automating this)\n- source_snippet: an EXACT short verbatim phrase (6-12 words) copied directly from the spec text that this requirement is drawn from, so it can be located in the source\n\nIdentify 6 to 9 requirements covering a good spread of the document. Be honest and varied \u2014 include at least one 'No AI needed' case to show good judgement, not blanket AI-washing.\n\nReturn ONLY a raw JSON array of these objects. No markdown fences, no prose, no preamble.";
+
+async function runAnalysis() {
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<i class="ti ti-loader-2" aria-hidden="true"></i> Analysing…';
+  statusLine.textContent = "Reading specification and extracting requirements…";
+  resultsList.innerHTML = '<div class="thinking-line"><span class="dot"></span> Parsing document structure</div>';
+  summaryBar.style.display = "none";
+  sourceEl.innerHTML = escapeHtml(SPEC_TEXT);
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: "Specification text:\n\n" + SPEC_TEXT + "\n\nReturn the JSON array now." }]
+      })
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error("API error " + response.status + " — " + errBody.slice(0, 200));
+    }
+
+    const data = await response.json();
+    const textBlock = data.content.find(b => b.type === "text");
+    let raw = textBlock ? textBlock.text : "[]";
+    raw = raw.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
+    const items = JSON.parse(raw);
+    currentResults = items;
+
+    resultsList.innerHTML = "";
+    statusLine.textContent = "Found " + items.length + " requirements — mapping to AI/automation opportunities…";
+
+    for (let i = 0; i < items.length; i++) {
+      await new Promise(r => setTimeout(r, 220));
+      renderCard(items[i], i);
+      statusLine.textContent = "Analysed " + (i + 1) + " of " + items.length + " requirements…";
+    }
+
+    renderSummary(items);
+    statusLine.textContent = "Analysis complete — " + items.length + " requirements assessed";
+  } catch (err) {
+    resultsList.innerHTML = '<div class="empty-state">Something went wrong running the analysis: ' + escapeHtml(err.message) + ". Try again." + "</div>";
+    statusLine.textContent = "Error during analysis";
+  } finally {
+    runBtn.disabled = false;
+    runBtn.innerHTML = '<i class="ti ti-player-play" aria-hidden="true"></i> Analyse spec';
+  }
+}
+
+runBtn.addEventListener("click", runAnalysis);
+
+const chatLog = document.getElementById("chat-log");
+const chatInput = document.getElementById("chat-input");
+const chatSend = document.getElementById("chat-send");
+
+function addChatBubble(role, text) {
+  const empty = chatLog.querySelector(".chat-empty");
+  if (empty) empty.remove();
+  const row = document.createElement("div");
+  row.className = "chat-msg " + role;
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble";
+  bubble.textContent = text;
+  row.appendChild(bubble);
+  chatLog.appendChild(row);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function addChatThinking() {
+  const row = document.createElement("div");
+  row.className = "chat-thinking";
+  row.id = "chat-thinking-row";
+  row.innerHTML = '<span class="dot"></span> Thinking…';
+  chatLog.appendChild(row);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function removeChatThinking() {
+  const row = document.getElementById("chat-thinking-row");
+  if (row) row.remove();
+}
+
+const CHAT_SYSTEM_PROMPT = "You are a solutions architect discussing a business functional/user-guide specification and a prior AI-automation-opportunity analysis of it, in conversation with a consultant.\n\nYou will be given: (1) the full specification text, (2) the current list of analysed requirements (JSON), and (3) a follow-up question or instruction from the user.\n\nDecide which of two response types fits:\n\nTYPE A — Conversational answer. Use this when the user is asking a question about the existing analysis or the document (e.g. \"why is X high risk\", \"what about GDPR\", \"explain the nominee step\"). Reply with plain prose only. Keep it concise (2-5 sentences unless more detail is clearly needed). Do NOT use markdown headers.\n\nTYPE B — Re-analysis. Use this when the user is asking you to redo, narrow, expand, or refocus the structured analysis (e.g. \"focus only on compliance steps\", \"redo this for fraud risk\", \"only show high-effort items\"). Reply with ONLY a raw JSON array of objects, each with exactly these keys: requirement, pain_point, ai_solution, approach, effort (Low/Medium/High), risk (Low/Medium/High), source_snippet (an exact 6-12 word verbatim phrase from the specification text). No prose, no markdown fences, nothing else — just the JSON array.\n\nRespond with TYPE A or TYPE B only, never both, and never explain which type you chose.";
+
+async function sendChatMessage() {
+  const question = chatInput.value.trim();
+  if (!question) return;
+
+  addChatBubble("user", question);
+  chatInput.value = "";
+  chatSend.disabled = true;
+  addChatThinking();
+
+  try {
+    const contextPayload =
+      "SPECIFICATION TEXT:\n" + SPEC_TEXT +
+      "\n\nCURRENT ANALYSIS RESULTS (JSON):\n" + JSON.stringify(currentResults) +
+      "\n\nUSER QUESTION OR INSTRUCTION:\n" + question;
+
+    const response = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        system: CHAT_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: contextPayload }]
+      })
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error("API error " + response.status + " — " + errBody.slice(0, 200));
+    }
+
+    const data = await response.json();
+    const textBlock = data.content.find(b => b.type === "text");
+    let raw = textBlock ? textBlock.text.trim() : "";
+    raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
+
+    removeChatThinking();
+
+    const looksLikeJsonArray = raw.startsWith("[") && raw.endsWith("]");
+    if (looksLikeJsonArray) {
+      try {
+        const newItems = JSON.parse(raw);
+        currentResults = newItems;
+        resultsList.innerHTML = "";
+        sourceEl.textContent = SPEC_TEXT;
+        for (let i = 0; i < newItems.length; i++) {
+          renderCard(newItems[i], i);
+        }
+        renderSummary(newItems);
+        addChatBubble("system", "Updated the analysis above based on your request (" + newItems.length + " requirements).");
+      } catch (parseErr) {
+        addChatBubble("assistant", raw);
+      }
+    } else {
+      addChatBubble("assistant", raw);
+    }
+  } catch (err) {
+    removeChatThinking();
+    addChatBubble("system", "Something went wrong: " + err.message);
+  } finally {
+    chatSend.disabled = false;
+  }
+}
+
+chatSend.addEventListener("click", sendChatMessage);
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChatMessage();
+});
+</script>
+</div>
+<div class="footer-note">Calls <code>claude-sonnet-4-6</code> through a private Cloudflare Worker proxy &mdash; no API key needed in this page.</div>
+</body>
+</html>

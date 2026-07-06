@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             targetNamespace="http://specanalyst.io/bpmn"
+             id="Definitions_SpecAnalyst"
+             name="Spec analyst AI agent — process model">
+
+  <message id="Message_DocumentText" name="Document text"/>
+  <message id="Message_ResultsJSON"  name="Results JSON"/>
+
+  <collaboration id="Collab_SpecAnalyst">
+    <participant id="Pool_Team"  name="Consulting team" processRef="Process_Team"/>
+    <participant id="Pool_Agent" name="AI agent"        processRef="Process_Agent"/>
+    <messageFlow id="MF_DocToAgent"  name="Document text" sourceRef="Task_UploadSpec"   targetRef="StartEvent_Agent"/>
+    <messageFlow id="MF_ResultsToBA" name="Results JSON"  sourceRef="Task_RenderOutput" targetRef="Task_ReviewOutput"/>
+  </collaboration>
+
+  <!-- ══════════ Process 1: Consulting team ══════════ -->
+  <process id="Process_Team" name="Consulting team workflow" isExecutable="false">
+
+    <laneSet id="LaneSet_Team">
+      <lane id="Lane_Analyst" name="Analyst">
+        <flowNodeRef>StartEvent_Team</flowNodeRef>
+        <flowNodeRef>Task_ReceiveSpec</flowNodeRef>
+        <flowNodeRef>Task_UploadSpec</flowNodeRef>
+        <flowNodeRef>Task_ReviewOutput</flowNodeRef>
+        <flowNodeRef>Gateway_Refine</flowNodeRef>
+        <flowNodeRef>Task_RefineChat</flowNodeRef>
+      </lane>
+      <lane id="Lane_Stakeholder" name="Stakeholder">
+        <flowNodeRef>Task_PresentFindings</flowNodeRef>
+        <flowNodeRef>EndEvent_Team</flowNodeRef>
+      </lane>
+    </laneSet>
+
+    <startEvent id="StartEvent_Team" name="Start">
+      <outgoing>SF_Start_Receive</outgoing>
+    </startEvent>
+
+    <userTask id="Task_ReceiveSpec" name="Receive spec">
+      <documentation>Analyst receives the functional specification document from the client or an internal team.</documentation>
+      <incoming>SF_Start_Receive</incoming>
+      <outgoing>SF_Receive_Upload</outgoing>
+    </userTask>
+
+    <userTask id="Task_UploadSpec" name="Upload spec">
+      <documentation>Analyst uploads the specification (PDF, DOCX or TXT) into the spec analyst tool via the file upload control.</documentation>
+      <incoming>SF_Receive_Upload</incoming>
+      <outgoing>SF_Upload_Review</outgoing>
+    </userTask>
+
+    <userTask id="Task_ReviewOutput" name="Review output">
+      <documentation>Analyst validates the AI-generated opportunity cards: requirement, pain point, recommended technique, effort and risk ratings, and source traceability.</documentation>
+      <incoming>SF_Upload_Review</incoming>
+      <incoming>SF_Refine_Review</incoming>
+      <outgoing>SF_Review_Gateway</outgoing>
+    </userTask>
+
+    <exclusiveGateway id="Gateway_Refine" name="Refine?">
+      <incoming>SF_Review_Gateway</incoming>
+      <outgoing>SF_Gateway_Refine</outgoing>
+      <outgoing>SF_Gateway_Present</outgoing>
+    </exclusiveGateway>
+
+    <userTask id="Task_RefineChat" name="Refine via chat">
+      <documentation>Analyst asks follow-up questions or instructs the agent to re-run the analysis with a different focus (for example compliance-only) via the chat panel.</documentation>
+      <incoming>SF_Gateway_Refine</incoming>
+      <outgoing>SF_Refine_Review</outgoing>
+    </userTask>
+
+    <userTask id="Task_PresentFindings" name="Present findings">
+      <documentation>Analyst presents the validated automation opportunity roadmap to senior stakeholders, supported by the summary metrics from the agent output.</documentation>
+      <incoming>SF_Gateway_Present</incoming>
+      <outgoing>SF_Present_End</outgoing>
+    </userTask>
+
+    <endEvent id="EndEvent_Team" name="End">
+      <incoming>SF_Present_End</incoming>
+    </endEvent>
+
+    <sequenceFlow id="SF_Start_Receive"   sourceRef="StartEvent_Team"    targetRef="Task_ReceiveSpec"/>
+    <sequenceFlow id="SF_Receive_Upload"  sourceRef="Task_ReceiveSpec"   targetRef="Task_UploadSpec"/>
+    <sequenceFlow id="SF_Upload_Review"   sourceRef="Task_UploadSpec"    targetRef="Task_ReviewOutput"/>
+    <sequenceFlow id="SF_Review_Gateway"  sourceRef="Task_ReviewOutput"  targetRef="Gateway_Refine"/>
+    <sequenceFlow id="SF_Gateway_Refine"  name="Yes" sourceRef="Gateway_Refine" targetRef="Task_RefineChat">
+      <conditionExpression>refinement required</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="SF_Refine_Review"   sourceRef="Task_RefineChat"    targetRef="Task_ReviewOutput"/>
+    <sequenceFlow id="SF_Gateway_Present" name="No" sourceRef="Gateway_Refine" targetRef="Task_PresentFindings">
+      <conditionExpression>results approved</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="SF_Present_End"     sourceRef="Task_PresentFindings" targetRef="EndEvent_Team"/>
+
+  </process>
+
+  <!-- ══════════ Process 2: AI agent pipeline ══════════ -->
+  <process id="Process_Agent" name="AI agent pipeline" isExecutable="false">
+
+    <startEvent id="StartEvent_Agent" name="Document received">
+      <messageEventDefinition messageRef="Message_DocumentText"/>
+      <outgoing>SF_AgentStart_Parse</outgoing>
+    </startEvent>
+
+    <serviceTask id="Task_ParseChunk" name="Parse &amp; chunk">
+      <documentation>Ingests the uploaded file, extracts raw text (pdf.js for PDF, mammoth.js for DOCX), strips artefact glyphs, normalises whitespace, and splits the text into bounded sections so each model call has coherent context.</documentation>
+      <incoming>SF_AgentStart_Parse</incoming>
+      <outgoing>SF_Parse_Extract</outgoing>
+    </serviceTask>
+
+    <serviceTask id="Task_ExtractReqs" name="Extract requirements">
+      <documentation>LLM call identifies each discrete functional requirement, manual process step, decision point or repetitive task in the specification and returns a structured JSON array.</documentation>
+      <incoming>SF_Parse_Extract</incoming>
+      <outgoing>SF_Extract_Assess</outgoing>
+    </serviceTask>
+
+    <serviceTask id="Task_AssessAIFit" name="Assess AI-fit">
+      <documentation>For each requirement, the model assesses whether AI genuinely adds value or whether rules-based automation suffices; maps a concrete technique (OCR, NLP, anomaly detection, rules-based STP) and scores effort and risk as Low, Medium or High. Includes at least one honest "no AI needed" case to avoid blanket AI recommendations.</documentation>
+      <incoming>SF_Extract_Assess</incoming>
+      <outgoing>SF_Assess_Render</outgoing>
+    </serviceTask>
+
+    <serviceTask id="Task_RenderOutput" name="Render output">
+      <documentation>Validates the JSON against the schema (requirement, pain_point, ai_solution, approach, effort, risk, source_snippet), renders requirement cards with source-document highlighting, and computes summary metrics.</documentation>
+      <incoming>SF_Assess_Render</incoming>
+      <outgoing>SF_Render_End</outgoing>
+    </serviceTask>
+
+    <endEvent id="EndEvent_Agent" name="Output ready">
+      <incoming>SF_Render_End</incoming>
+    </endEvent>
+
+    <sequenceFlow id="SF_AgentStart_Parse" sourceRef="StartEvent_Agent" targetRef="Task_ParseChunk"/>
+    <sequenceFlow id="SF_Parse_Extract"    sourceRef="Task_ParseChunk"  targetRef="Task_ExtractReqs"/>
+    <sequenceFlow id="SF_Extract_Assess"   sourceRef="Task_ExtractReqs" targetRef="Task_AssessAIFit"/>
+    <sequenceFlow id="SF_Assess_Render"    sourceRef="Task_AssessAIFit" targetRef="Task_RenderOutput"/>
+    <sequenceFlow id="SF_Render_End"       sourceRef="Task_RenderOutput" targetRef="EndEvent_Agent"/>
+
+  </process>
+
+  <!-- ══════════ Diagram layout (BPMN DI) ══════════ -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_SpecAnalyst">
+    <bpmndi:BPMNPlane id="BPMNPlane_SpecAnalyst" bpmnElement="Collab_SpecAnalyst">
+
+      <bpmndi:BPMNShape id="Pool_Team_di" bpmnElement="Pool_Team" isHorizontal="true">
+        <dc:Bounds x="40" y="40" width="820" height="320"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Analyst_di" bpmnElement="Lane_Analyst" isHorizontal="true">
+        <dc:Bounds x="70" y="40" width="790" height="220"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Stakeholder_di" bpmnElement="Lane_Stakeholder" isHorizontal="true">
+        <dc:Bounds x="70" y="260" width="790" height="100"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="StartEvent_Team_di" bpmnElement="StartEvent_Team">
+        <dc:Bounds x="102" y="102" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReceiveSpec_di" bpmnElement="Task_ReceiveSpec">
+        <dc:Bounds x="180" y="90" width="130" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UploadSpec_di" bpmnElement="Task_UploadSpec">
+        <dc:Bounds x="350" y="90" width="130" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReviewOutput_di" bpmnElement="Task_ReviewOutput">
+        <dc:Bounds x="520" y="90" width="130" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Refine_di" bpmnElement="Gateway_Refine" isMarkerVisible="true">
+        <dc:Bounds x="695" y="95" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RefineChat_di" bpmnElement="Task_RefineChat">
+        <dc:Bounds x="520" y="180" width="130" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PresentFindings_di" bpmnElement="Task_PresentFindings">
+        <dc:Bounds x="620" y="280" width="140" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Team_di" bpmnElement="EndEvent_Team">
+        <dc:Bounds x="800" y="292" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Pool_Agent_di" bpmnElement="Pool_Agent" isHorizontal="true">
+        <dc:Bounds x="40" y="400" width="820" height="160"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_Agent_di" bpmnElement="StartEvent_Agent">
+        <dc:Bounds x="102" y="462" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ParseChunk_di" bpmnElement="Task_ParseChunk">
+        <dc:Bounds x="180" y="450" width="140" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ExtractReqs_di" bpmnElement="Task_ExtractReqs">
+        <dc:Bounds x="360" y="450" width="140" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AssessAIFit_di" bpmnElement="Task_AssessAIFit">
+        <dc:Bounds x="540" y="450" width="140" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RenderOutput_di" bpmnElement="Task_RenderOutput">
+        <dc:Bounds x="720" y="450" width="110" height="60"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Agent_di" bpmnElement="EndEvent_Agent">
+        <dc:Bounds x="806" y="530" width="30" height="30"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="SF_Start_Receive_di" bpmnElement="SF_Start_Receive">
+        <di:waypoint x="138" y="120"/><di:waypoint x="180" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Receive_Upload_di" bpmnElement="SF_Receive_Upload">
+        <di:waypoint x="310" y="120"/><di:waypoint x="350" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Upload_Review_di" bpmnElement="SF_Upload_Review">
+        <di:waypoint x="480" y="120"/><di:waypoint x="520" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Review_Gateway_di" bpmnElement="SF_Review_Gateway">
+        <di:waypoint x="650" y="120"/><di:waypoint x="695" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Gateway_Refine_di" bpmnElement="SF_Gateway_Refine">
+        <di:waypoint x="720" y="145"/><di:waypoint x="720" y="210"/><di:waypoint x="650" y="210"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Refine_Review_di" bpmnElement="SF_Refine_Review">
+        <di:waypoint x="560" y="180"/><di:waypoint x="560" y="150"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Gateway_Present_di" bpmnElement="SF_Gateway_Present">
+        <di:waypoint x="745" y="120"/><di:waypoint x="790" y="120"/><di:waypoint x="790" y="250"/><di:waypoint x="690" y="250"/><di:waypoint x="690" y="280"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Present_End_di" bpmnElement="SF_Present_End">
+        <di:waypoint x="760" y="310"/><di:waypoint x="800" y="310"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="SF_AgentStart_Parse_di" bpmnElement="SF_AgentStart_Parse">
+        <di:waypoint x="138" y="480"/><di:waypoint x="180" y="480"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Parse_Extract_di" bpmnElement="SF_Parse_Extract">
+        <di:waypoint x="320" y="480"/><di:waypoint x="360" y="480"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Extract_Assess_di" bpmnElement="SF_Extract_Assess">
+        <di:waypoint x="500" y="480"/><di:waypoint x="540" y="480"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Assess_Render_di" bpmnElement="SF_Assess_Render">
+        <di:waypoint x="680" y="480"/><di:waypoint x="720" y="480"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_Render_End_di" bpmnElement="SF_Render_End">
+        <di:waypoint x="775" y="510"/><di:waypoint x="821" y="530"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="MF_DocToAgent_di" bpmnElement="MF_DocToAgent">
+        <di:waypoint x="415" y="150"/><di:waypoint x="415" y="380"/><di:waypoint x="250" y="380"/><di:waypoint x="250" y="450"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_ResultsToBA_di" bpmnElement="MF_ResultsToBA">
+        <di:waypoint x="775" y="450"/><di:waypoint x="775" y="390"/><di:waypoint x="600" y="390"/><di:waypoint x="600" y="150"/>
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>
